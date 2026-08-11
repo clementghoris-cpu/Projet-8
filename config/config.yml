@@ -1,0 +1,9 @@
+paths:
+  application_test: "data/raw/application_test.csv"
+  bureau_balance: "data/raw/bureau_balance.csv"
+  bureau: "data/raw/bureau.csv"
+  credit_card_balance: "data/raw/credit_card_balance.csv"
+  installments_payments: "data/raw/installments_payments.csv"
+  pos_cash_balance: "data/raw/POS_CASH_balance.csv"
+  previous_application: "data/raw/previous_application.csv"
+  output_aggregation: "data/processed/historic_aggregation.csv"
