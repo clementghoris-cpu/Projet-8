@@ -30,4 +30,4 @@ def load_config(config_file: str = "config.yml") -> AppConfig:
 
     return AppConfig.model_validate(raw_data)
 
-App_config = load_config()
+App_config = load_config(config_file = os.path.join(os.getcwd(), "config","config.yml"))
