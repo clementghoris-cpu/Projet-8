@@ -1,10 +1,10 @@
 import pandas as pd
 from config.project_config import App_config
-from bureau_aggregation import process_bureau, process_bureau_balance
-from credit_card_balance_aggregation import process_credit_card
-from installments_payments_aggregation import process_install_payments
-from pos_cash_balance_aggregation import process_pos_cash_balance
-from previous_application_aggregation import process_previous_app
+from src.data.historic.bureau_aggregation import process_bureau, process_bureau_balance
+from src.data.historic.credit_card_balance_aggregation import process_credit_card
+from src.data.historic.installments_payments_aggregation import process_install_payments
+from src.data.historic.pos_cash_balance_aggregation import process_pos_cash_balance
+from src.data.historic.previous_application_aggregation import process_previous_app
 
 BUREAU = "bureau"
 BUREAU_BALANCE = "bureau_balance"
@@ -47,8 +47,7 @@ def calculate_aggregation_from_historic(df_dict : dict) -> pd.DataFrame:
 
     ID = "SK_ID_CURR"
 
-    df_agg_total = df_agg_bureau.merge(df_agg_bureau, on=ID, how="outer")
-    df_agg_total = df_agg_total.merge(df_agg_bureau_balance, on=ID, how='outer')
+    df_agg_total = df_agg_bureau.merge(df_agg_bureau_balance, on=ID, how='outer')
     df_agg_total = df_agg_total.merge(df_agg_credit_card, on=ID, how='outer')
     df_agg_total = df_agg_total.merge(df_agg_install_pay, on=ID, how='outer')
     df_agg_total = df_agg_total.merge(df_agg_pos_cash, on=ID, how='outer')
