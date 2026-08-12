@@ -47,4 +47,5 @@ def process_install_payments(df_install_pay : pd.DataFrame) -> pd.DataFrame:
 
     final_inst = inst_agg.merge(inst_recent_agg, on='SK_ID_CURR', how='left').reset_index()
 
+    print(f"    Agrégation installments payments : {final_inst.shape}")
     return final_inst

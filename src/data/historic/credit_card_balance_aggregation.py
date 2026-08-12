@@ -72,4 +72,5 @@ def process_credit_card(df_credit_card : pd.DataFrame) -> pd.DataFrame:
     else:
         final_cc = cc_agg.reset_index()
 
+    print(f"    Agrégation credit card balance : {final_cc.shape}")
     return final_cc

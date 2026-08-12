@@ -51,4 +51,5 @@ def process_pos_cash_balance(df_pos_cash_bal : pd.DataFrame) -> pd.DataFrame:
     # Fusion de l'agrégation globale et récente
     final_pos = pos_agg.merge(pos_recent_agg, on='SK_ID_CURR', how='left').reset_index()
 
+    print(f"    Agrégation POS_CASH balance : {final_pos.shape}")
     return final_pos
