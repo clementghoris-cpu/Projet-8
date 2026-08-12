@@ -63,13 +63,20 @@ def run_historic_aggregation():
     3. enregistre les résultats dans un fichier CSV
     '''
     try:
+        print("Lecture des fichiers historiques...")
         df_dict = read_historic_files()
+
+        print("Agrégation des données historiques...")
+        print("--> Résultat agrégation :")
         df_agg = calculate_aggregation_from_historic(df_dict)
 
-        df_agg.to_csv(App_config.paths.output_aggregation)
+        print("Sauvegarde des données historique agrégées...")
+        df_agg.to_csv(App_config.paths.output_aggregation, index=False)
+
+        print("Historic pipeline executé avec succès!")
     except Exception as e:
         print(f"Erreur lors du calcul des agrégation des données historiques : {e}")
 
 
 if __name__ == "__main__":
-    calculate_aggregation_from_historic()
+    run_historic_aggregation()
