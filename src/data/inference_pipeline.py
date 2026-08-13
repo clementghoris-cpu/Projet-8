@@ -125,9 +125,9 @@ def build_full_features(pydantic_df: pd.DataFrame, expected_columns: list) -> pd
     
     # Récupération Redis
     redis_features = get_redis_features(sk_id_curr)
-    for col, val in redis_features.items():
-        pydantic_df[col] = val
-        
+    redis_df = pd.DataFrame([redis_features]) 
+    pydantic_df = pd.concat([pydantic_df, redis_df], axis=1)
+
     # Nettoyage de base (Ratios primaires)
     df_clean = preprocess_basic_features(pydantic_df)
     
@@ -139,5 +139,5 @@ def build_full_features(pydantic_df: pd.DataFrame, expected_columns: list) -> pd
     
     # Alignement strict avec le modèle d'entraînement
     df_final = df_encoded.reindex(columns=expected_columns, fill_value=0)
-    
+
     return df_final
