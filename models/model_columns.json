@@ -322,6 +322,5 @@
     "OCCUPATION_TYPE_Laborers",
     "OCCUPATION_TYPE_Sales_staff",
     "ORGANIZATION_TYPE_Construction",
-    "ORGANIZATION_TYPE_Self_employed",
-    "SK_ID_CURR"
+    "ORGANIZATION_TYPE_Self_employed"
 ]

@@ -13,18 +13,24 @@ class PathsConfig(BaseModel):
     previous_application : str
     output_aggregation : str
     model_columns : str
+    model : str
 
     @field_validator("application_test", "bureau_balance", "bureau", "credit_card_balance",
                      "installments_payments", "pos_cash_balance", "previous_application",
-                      "output_aggregation", "model_columns", mode="after")
+                      "output_aggregation", "model_columns", "model", mode="after")
     @classmethod
     def make_absolute_path(cls, value: str) -> str:
         if not os.path.isabs(value):
             return os.path.join(os.getcwd(), value)
         return value
 
+class ModelConfig(BaseModel):
+    version : str
+    optimal_threshold : float
+
 class AppConfig(BaseModel):
     paths : PathsConfig
+    model : ModelConfig
 
 def load_config(config_file: str = "config.yml") -> AppConfig:
     with open(config_file, "r", encoding="utf-8") as file:

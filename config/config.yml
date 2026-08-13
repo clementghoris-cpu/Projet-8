@@ -9,3 +9,8 @@ paths:
   output_aggregation: "data/processed/historic_aggregation.csv"
 
   model_columns: "models/model_columns.json"
+  model: "models/model.skops"
+
+model:
+  version: "V1.0"
+  optimal_threshold: 0.43759776536312855
