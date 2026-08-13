@@ -2,16 +2,15 @@ import json
 import redis
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
-from config.project_config import CacheDb_settings, PathsConfig
+from config.project_config import CacheDb_settings, App_config
 
 redis_client = redis.Redis(host=CacheDb_settings.host, 
                 port=CacheDb_settings.port,
                 db=CacheDb_settings.db, 
                 decode_responses=True, 
-                password=CacheDb_settings.password)
+                password=CacheDb_settings.password.get_secret_value())
 
-with open(PathsConfig.model_columns, "r", encoding="utf-8") as f:
+with open(App_config.paths.model_columns, "r", encoding="utf-8") as f:
     EXPECTED_COLUMNS = json.load(f)
 
 def get_redis_features(sk_id_curr: int) -> dict:

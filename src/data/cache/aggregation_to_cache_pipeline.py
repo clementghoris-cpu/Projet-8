@@ -8,7 +8,7 @@ redis_client = redis.Redis(host=CacheDb_settings.host,
                            port=CacheDb_settings.port, 
                            db=CacheDb_settings.db, 
                            decode_responses=True,
-                           password=CacheDb_settings.password)
+                           password=CacheDb_settings.password.get_secret_value())
 
 ID = "SK_ID_CURR"
 BATCH_SIZE = 10000
