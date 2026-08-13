@@ -7,3 +7,5 @@ paths:
   pos_cash_balance: "data/raw/POS_CASH_balance.csv"
   previous_application: "data/raw/previous_application.csv"
   output_aggregation: "data/processed/historic_aggregation.csv"
+
+  model_columns: "models/model_columns.json"

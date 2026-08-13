@@ -30,6 +30,11 @@ class ClientApplicationInput(BaseModel):
     ORGANIZATION_TYPE: Optional[str] = Field(default=None, description="Type d'organisation / employeur")
     CNT_FAM_MEMBERS: Optional[float] = Field(default=1.0, ge=1.0, description="Nombre de membres dans la famille")
 
+    # Évaluation Région & Ville
+    REGION_RATING_CLIENT: Optional[int] = Field(default=None, description="Évaluation de la région où vit le client (1,2,3)")
+    REG_CITY_NOT_LIVE_CITY: int = Field(default=0, ge=0, le=1, description="1 si adresse de contact != adresse permanente")
+    REG_CITY_NOT_WORK_CITY: int = Field(default=0, ge=0, le=1, description="1 si adresse de travail != adresse permanente")
+
     # Données financières (Montants)
     AMT_INCOME_TOTAL: float = Field(..., gt=0, description="Revenu total du client")
     AMT_CREDIT: float = Field(..., gt=0, description="Montant du crédit sollicité")
@@ -49,6 +54,18 @@ class ClientApplicationInput(BaseModel):
     FLAG_PHONE: int = Field(default=0, ge=0, le=1)
     FLAG_EMAIL: int = Field(default=0, ge=0, le=1)
     DAYS_LAST_PHONE_CHANGE: Optional[float] = Field(default=None)
+
+    # Documents fournis
+    FLAG_DOCUMENT_2: int = Field(default=0, ge=0, le=1)
+    FLAG_DOCUMENT_3: int = Field(default=1, ge=0, le=1)
+    FLAG_DOCUMENT_4: int = Field(default=0, ge=0, le=1)
+    FLAG_DOCUMENT_5: int = Field(default=0, ge=0, le=1)
+
+    # Entourage social (Social Circle)
+    OBS_30_CNT_SOCIAL_CIRCLE: Optional[float] = Field(default=None, description="Observations 30 DPD")
+    DEF_30_CNT_SOCIAL_CIRCLE: Optional[float] = Field(default=None, description="Défauts 30 DPD")
+    OBS_60_CNT_SOCIAL_CIRCLE: Optional[float] = Field(default=None, description="Observations 60 DPD")
+    DEF_60_CNT_SOCIAL_CIRCLE: Optional[float] = Field(default=None, description="Défauts 60 DPD")
 
     # Demandes auprès du bureau de crédit (AMT_REQ_CREDIT_BUREAU_*)
     AMT_REQ_CREDIT_BUREAU_HOUR: Optional[float] = Field(default=None, ge=0)
