@@ -40,18 +40,18 @@ def load_config(config_file: str = "config.yml") -> AppConfig:
 
 class CacheDbSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="redis_", extra="ignore")
-    host : str
-    port : int
-    db : int
-    password : SecretStr
+    host : str = "localhost"
+    port : int = 6379
+    db : int = 0
+    password : SecretStr = SecretStr("")
 
 class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="postgresql_", extra="ignore")
-    host : str
-    port : int
-    db : str
-    user : str
-    password : SecretStr
+    host : str = "localhost"
+    port : int = 5432
+    db : str = "postgres"
+    user : str = "postgres"
+    password : SecretStr = SecretStr("")
 
     @property
     def database_url(self) -> str:
@@ -60,7 +60,13 @@ class DatabaseSettings(BaseSettings):
             f"@{self.host}:{self.port}/{self.db}"
         )
 
+class ApiSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="api_", extra="ignore")
+    url : str = "http://localhost"
+    port : int = 8000
+    predict_route : str = "/predict"
 
 App_config = load_config(config_file = os.path.join(os.getcwd(), "config","config.yml"))
 CacheDb_settings = CacheDbSettings()
 Database_settings = DatabaseSettings()
+Api_settings = ApiSettings()

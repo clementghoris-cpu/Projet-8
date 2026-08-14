@@ -88,6 +88,7 @@ async def predict_credit(client_data: ClientApplicationInput, request: Request):
         return {
             "SK_ID_CURR": sk_id_curr,
             "decision": decision_text,
+            "seuil": request.app.state.threshold,
             "probabilite": round(prob_default, 4),
             "execution_time_ms": round(execution_time_ms, 2)
         }
