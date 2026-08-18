@@ -72,11 +72,30 @@ jobs:
     Deploy:
         needs: Creation-Tag
         runs-on: self-hosted
+        environment: production
         steps:
             - name: Checkout code
               uses: actions/checkout@v7
             
-            - name: Deploiement avec Docker compsoe
+            - name: Deploiement avec Docker compose
+              env:
+                REDIS_HOST: ${{ vars.REDIS_HOST }}
+                REDIS_PORT: ${{ vars.REDIS_PORT }}
+                REDIS_DB: ${{ vars.REDIS_DB }}
+                REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+                
+                POSTGRESQL_HOST: ${{ vars.POSTGRESQL_HOST }}
+                POSTGRESQL_PORT: ${{ vars.POSTGRESQL_PORT }}
+                POSTGRESQL_DB: ${{ vars.POSTGRESQL_DB }}
+                POSTGRESQL_USER: ${{ secrets.POSTGRESQL_USER }}
+                POSTGRESQL_PASSWORD: ${{ secrets.POSTGRESQL_PASSWORD }}
+                
+                PGADMIN_EMAIL: ${{ secrets.PGADMIN_EMAIL }}
+                PGADMIN_PASSWORD: ${{ secrets.PGADMIN_PASSWORD }}
+                                
+                API_URL: ${{ vars.API_URL }}
+                API_PORT: ${{ vars.API_PORT }}
+                API_PREDICT_ROUTE: ${{ vars.API_PREDICT_ROUTE }}
               run: |
                 echo "Démarrage du déploiement pour la version ${{ needs.Creation-Tag.outputs.release_tag }}"
 
