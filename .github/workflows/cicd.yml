@@ -41,7 +41,7 @@ jobs:
     # --- Création tag ---
     Creation-Tag:
         needs: Analyse-et-tests
-        if: github.event_name == 'push' && github.ref == 'refs/head/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
         outputs:
             release_tag: ${{ steps.tagger.outputs.TAG_NAME }}
