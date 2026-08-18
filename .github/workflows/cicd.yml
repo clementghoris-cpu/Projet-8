@@ -43,6 +43,8 @@ jobs:
         needs: Analyse-et-tests
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
+        permissions:
+          contents: write
         outputs:
             release_tag: ${{ steps.tagger.outputs.TAG_NAME }}
 
