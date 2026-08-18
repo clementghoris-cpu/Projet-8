@@ -1,5 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def process_install_payments(df_install_pay : pd.DataFrame) -> pd.DataFrame:
     '''

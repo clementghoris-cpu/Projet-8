@@ -1,5 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def process_previous_app(df_prev_app : pd.DataFrame) -> pd.DataFrame:
     df = df_prev_app.copy()

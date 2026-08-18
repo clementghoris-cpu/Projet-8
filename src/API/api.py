@@ -1,11 +1,14 @@
 import time
-import skops.io as sio
 from contextlib import asynccontextmanager
+
+import skops.io as sio
 from fastapi import FastAPI, HTTPException, Request
-from src.API.schemas import ClientApplicationInput
-from src.data.inference_pipeline import build_full_features, EXPECTED_COLUMNS
-from src.database.prediction_logger import init_db, log_to_postgres
+
 from config.project_config import App_config
+from src.API.schemas import ClientApplicationInput
+from src.data.inference_pipeline import EXPECTED_COLUMNS, build_full_features
+from src.database.prediction_logger import init_db, log_to_postgres
+
 
 def load_model():
     """
@@ -18,7 +21,8 @@ def load_model():
         
         print(f"Modèle ML chargé avec succès depuis : {skops_path}")
         return model
-    except Exception as e:
+    # Le commentaire ajouté à droite ci-dessous est pour éviter que la librairie Ruff renvoi une erreur (utilisation d'une Exception générique) à la vérification du code
+    except Exception as e: # noqa: BLE001
         print(f"Erreur lors du chargement du modèle skops : {e}")
         return None
 
@@ -93,7 +97,8 @@ async def predict_credit(client_data: ClientApplicationInput, request: Request):
             "execution_time_ms": round(execution_time_ms, 2)
         }
 
-    except Exception as e:
+    # Le commentaire ajouté à droite ci-dessous est pour éviter que la librairie Ruff renvoi une erreur (utilisation d'une Exception générique) à la vérification du code
+    except Exception as e: # noqa: BLE001
         execution_time_ms = (time.time() - start_time) * 1000
         log_to_postgres(
             sk_id_curr=client_data.SK_ID_CURR,
@@ -103,7 +108,7 @@ async def predict_credit(client_data: ClientApplicationInput, request: Request):
             status_code=500,
             error_message=str(e)
         )
-        raise HTTPException(status_code=500, detail=f"Erreur interne lors de la prédiction : {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur interne lors de la prédiction : {e!s}")
 
 @app.get("/")
 def healthcheck(request: Request):

@@ -1,5 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def process_credit_card(df_credit_card : pd.DataFrame) -> pd.DataFrame:
     '''

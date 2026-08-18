@@ -1,8 +1,10 @@
-import pytest
-import pandas as pd
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import fakeredis
+import pandas as pd
+import pytest
+
 from src.data.cache.aggregation_to_cache_pipeline import load_csv_to_redis
 
 

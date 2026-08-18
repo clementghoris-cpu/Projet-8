@@ -1,8 +1,10 @@
-import redis
 import json
+
 import pandas as pd
-from config.project_config import App_config, CacheDb_settings
+import redis
 from tqdm import tqdm
+
+from config.project_config import App_config, CacheDb_settings
 
 redis_client = redis.Redis(host=CacheDb_settings.host, 
                            port=CacheDb_settings.port, 

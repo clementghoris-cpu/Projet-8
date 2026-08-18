@@ -1,11 +1,19 @@
-import pytest
-import pandas as pd
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from src.data.historic.historic_pipeline import (
+    BUREAU,
+    BUREAU_BALANCE,
+    CREDIT_CARD,
+    INSTALL_PAYMENTS,
+    POS_CASH,
+    PREV_APP,
     calculate_aggregation_from_historic,
-    read_historic_files, 
-    BUREAU, BUREAU_BALANCE, CREDIT_CARD, INSTALL_PAYMENTS, POS_CASH, PREV_APP
+    read_historic_files,
 )
+
 
 @pytest.fixture
 def dummy_df_dict():
@@ -81,5 +89,5 @@ def test_calculate_aggregation_from_historic_pipeline(
     assert 'SK_ID_CURR' in res.columns
     
     # 3. Vérifier l'absence de colonnes dupliquées dues au bug de merge
-    duplicated_cols = [c for c in res.columns if c.endswith('_x') or c.endswith('_y')]
+    duplicated_cols = [c for c in res.columns if c.endswith(('_x', '_y'))]
     assert len(duplicated_cols) == 0, f"Colonnes dupliquées détectées dans le merge : {duplicated_cols}"

@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def process_pos_cash_balance(df_pos_cash_bal : pd.DataFrame) -> pd.DataFrame:
     '''
     Agrégation des données du fichier 'pos_cash_balance.csv'

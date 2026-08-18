@@ -1,12 +1,15 @@
-import pytest
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-from unittest.mock import patch, MagicMock
+import pytest
 from fastapi import HTTPException
 
-with patch("src.database.prediction_logger.init_db"):
-    with patch("src.database.prediction_logger.log_to_postgres"):
-        from src.API.api import load_model, predict_credit, healthcheck
+with (
+    patch("src.database.prediction_logger.init_db"),
+    patch("src.database.prediction_logger.log_to_postgres")
+):
+    from src.API.api import healthcheck, load_model, predict_credit
 
 # ==============================================================================
 # TESTS UNITAIRES 

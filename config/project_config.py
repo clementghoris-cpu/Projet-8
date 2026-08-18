@@ -1,7 +1,9 @@
 import os
+
 import yaml
-from pydantic import BaseModel, field_validator, SecretStr
+from pydantic import BaseModel, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class PathsConfig(BaseModel):
     application_test : str

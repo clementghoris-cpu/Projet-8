@@ -1,9 +1,10 @@
 import os
-import requests
-import pandas as pd
-import gradio as gr
-from config.project_config import Api_settings, App_config
 
+import gradio as gr
+import pandas as pd
+import requests
+
+from config.project_config import Api_settings, App_config
 
 API_URL = f"{Api_settings.url}:{Api_settings.port}/{Api_settings.predict_route}"
 TEST_CSV_PATH = App_config.paths.application_test
@@ -15,7 +16,7 @@ def load_test_clients(filepath, n=10):
         clients_dict = df_sample.set_index('SK_ID_CURR').to_dict(orient='index')
         print(f"{len(clients_dict)} clients de test chargés avec succès.")
         return clients_dict
-    except Exception as e:
+    except (FileNotFoundError, KeyError) as e:
         print(f"Impossible de charger {filepath} ({e}). Utilisation d'un client par défaut.")
         return {
             100002: {
@@ -41,7 +42,7 @@ def load_test_clients(filepath, n=10):
 
 
 CLIENTS_MEMORY = load_test_clients(TEST_CSV_PATH, n=10)
-CLIENT_IDS = [str(k) for k in CLIENTS_MEMORY.keys()]
+CLIENT_IDS = [str(k) for k in CLIENTS_MEMORY]
 
 def populate_form(sk_id):
     try:

@@ -1,6 +1,8 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from src.database.prediction_logger import log_to_postgres, PredictionLog
+
+from src.database.prediction_logger import PredictionLog, log_to_postgres
 
 
 @pytest.fixture

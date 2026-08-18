@@ -1,8 +1,10 @@
 import json
-import redis
-import pandas as pd
+
 import numpy as np
-from config.project_config import CacheDb_settings, App_config
+import pandas as pd
+import redis
+
+from config.project_config import App_config, CacheDb_settings
 
 redis_client = redis.Redis(host=CacheDb_settings.host, 
                 port=CacheDb_settings.port,

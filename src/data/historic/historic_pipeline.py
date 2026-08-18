@@ -1,4 +1,5 @@
 import pandas as pd
+
 from config.project_config import App_config
 from src.data.historic.bureau_aggregation import process_bureau, process_bureau_balance
 from src.data.historic.credit_card_balance_aggregation import process_credit_card
@@ -31,7 +32,7 @@ def read_historic_files() -> dict:
     
     except Exception as ex:
         print(f"Erreur lecture fichiers historiques : {ex.__traceback__}")
-        raise ex
+        raise
         
 
 def calculate_aggregation_from_historic(df_dict : dict) -> pd.DataFrame:
@@ -74,7 +75,8 @@ def run_historic_aggregation():
         df_agg.to_csv(App_config.paths.output_aggregation, index=False)
 
         print("Historic pipeline executé avec succès!")
-    except Exception as e:
+        # Le commentaire ajouté à droite ci-dessous est pour éviter que la librairie Ruff renvoi une erreur (utilisation d'une Exception générique) à la vérification du code
+    except Exception as e:  # noqa: BLE001
         print(f"Erreur lors du calcul des agrégation des données historiques : {e}")
 
 

@@ -1,6 +1,6 @@
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
+
 from src.data.historic.pos_cash_balance_aggregation import process_pos_cash_balance
 
 

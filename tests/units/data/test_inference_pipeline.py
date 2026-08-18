@@ -1,7 +1,8 @@
 import json
-import pytest
+from unittest.mock import MagicMock, mock_open, patch
+
 import pandas as pd
-from unittest.mock import patch, mock_open, MagicMock
+import pytest
 
 # ------------------------------------------------------------------------------
 # Fixtures
@@ -20,16 +21,18 @@ def custom_open(file, *args, **kwargs):
         return mock_open(read_data=mock_json_data)()
     return original_open(file, *args, **kwargs)
 
-with patch("redis.Redis"):
-    with patch("config.project_config.PathsConfig.model_columns", "fake_model_columns.json", create=True):
-        with patch("builtins.open", side_effect=custom_open):
-            from src.data.inference_pipeline import (
-                get_redis_features,
-                preprocess_basic_features,
-                add_polynomial_and_interaction_features,
-                encode_categorical_features,
-                build_full_features,
-            )
+with (
+    patch("redis.Redis"),
+    patch("config.project_config.PathsConfig.model_columns", "fake_model_columns.json", create=True),
+    patch("builtins.open", side_effect=custom_open)
+):
+    from src.data.inference_pipeline import (
+        add_polynomial_and_interaction_features,
+        build_full_features,
+        encode_categorical_features,
+        get_redis_features,
+        preprocess_basic_features,
+    )
 
 # ------------------------------------------------------------------------------
 # Tests unitaires

@@ -1,7 +1,8 @@
-import pytest
-import pandas as pd
 import numpy as np
-from pandas.testing import assert_frame_equal, assert_series_equal
+import pandas as pd
+import pytest
+from pandas.testing import assert_frame_equal
+
 from src.data.historic.bureau_aggregation import process_bureau, process_bureau_balance
 
 # ------------------------------------------------------------------

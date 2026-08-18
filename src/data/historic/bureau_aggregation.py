@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def process_bureau(df_bureau : pd.DataFrame) -> pd.DataFrame:
     '''
     Agrégation des données du fichier 'bureau.csv'
