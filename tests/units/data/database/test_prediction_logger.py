@@ -19,7 +19,7 @@ def mock_db_session():
 @patch('src.database.prediction_logger.SessionLocal')
 def test_log_to_postgres_success(mock_session_factory, mock_db_session):
     """Vérifie le comportement nominal d'un enregistrement réussi."""
-    mock_session_factory.return_value = mock_db_session
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
 
     inputs_payload = {"AMT_CREDIT": 100000.0, "AGE": 30}
     
@@ -51,13 +51,12 @@ def test_log_to_postgres_success(mock_session_factory, mock_db_session):
     # 2. Vérifie la validation des transactions
     mock_db_session.commit.assert_called_once()
     mock_db_session.rollback.assert_not_called()
-    mock_db_session.close.assert_called_once()
 
 
 @patch('src.database.prediction_logger.SessionLocal')
 def test_log_to_postgres_error_handling(mock_session_factory, mock_db_session):
     """Vérifie que la transaction fait un rollback et ferme la session en cas d'erreur BDD."""
-    mock_session_factory.return_value = mock_db_session
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
     
     # Simuler une exception SQLAlchemy lors du commit
     mock_db_session.commit.side_effect = Exception("Erreur de connexion BDD")
@@ -76,13 +75,12 @@ def test_log_to_postgres_error_handling(mock_session_factory, mock_db_session):
     mock_db_session.add.assert_called_once()
     mock_db_session.commit.assert_called_once()
     mock_db_session.rollback.assert_called_once()  # Rollback doit être appelé !
-    mock_db_session.close.assert_called_once()     # La session doit TOUJOURS être fermée !
 
 
 @patch('src.database.prediction_logger.SessionLocal')
 def test_log_to_postgres_optional_fields_none(mock_session_factory, mock_db_session):
     """Vérifie l'enregistrement avec uniquement les champs obligatoires (valeurs optionnelles à None)."""
-    mock_session_factory.return_value = mock_db_session
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
 
     log_to_postgres(
         sk_id_curr=100003,
