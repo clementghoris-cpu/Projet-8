@@ -1,0 +1,85 @@
+name: CI/CD Pipeline
+
+on: 
+    pull_request:
+        branches:
+            - main
+    push:
+        branches:
+            - main
+
+jobs:
+    # --- Tests unitaires + analyse qualité code ---
+    Analyse-et-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+
+            - name: Installation python
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+
+            - name: Configuration de UV
+              uses: astral-sh/setup-uv@v5
+              with:
+                enable-cache: true
+
+            - name: Installation des dépendances
+              run: uv sync
+
+            - name: Analyse qualité code avec Ruff
+              run: uv run ruff check .
+                
+            - name: Exécution des tests
+              run: uv run pytest tests/
+              env:
+                PYTHONPATH: .
+                TA_TIMEOUT: '60'
+
+    # --- Création tag ---
+    Creation-Tag:
+        needs: Analyse-et-tests
+        if: github.event_name == 'push' && github.ref == 'refs/head/main'
+        runs-on: ubuntu-latest
+        outputs:
+            release_tag: ${{ steps.tagger.outputs.TAG_NAME }}
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+
+            - name: Génération du Tag
+              id: tagger
+              run: |
+                # on utilise la date/heure pour générer le tag (ex : V2026.07.14-1230)
+                NEW_TAG="v$(date +'%Y.%m.%d-%H%M')"
+                echo "TAG_NAME=$NEW_TAG" >> $GITHUB_OUTPUT
+
+                git config user.name "GitHub Actions Bot"
+                git config user.email "actions@github.com"
+                
+                echo "Création du tag : $NEW_TAG"
+                git tag $NEW_TAG
+                git push origin $NEW_TAG
+
+    # --- Déploiement docker (Github self hosted runners)
+    Deploy:
+        needs: Creation-Tag
+        runs-on: self-hosted
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+            
+            - name: Deploiement avec Docker compsoe
+              run: |
+                echo "Démarrage du déploiement pour la version ${{ needs.Creation-Tag.outputs.release_tag }}"
+
+                docker compose down                
+                docker compose build
+                docker compose up -d
+
+                echo "Déploiement terminé avec succès"

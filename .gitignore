@@ -220,5 +220,6 @@ __marimo__/
 # folders
 notebook/
 /data/
+.github/actions-runner/
 
 test.py
