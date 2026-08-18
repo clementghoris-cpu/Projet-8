@@ -1,7 +1,8 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 from pandas.testing import assert_frame_equal
+
 from src.data.historic.installments_payments_aggregation import process_install_payments
 
 # ------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def process_bureau(df_bureau : pd.DataFrame) -> pd.DataFrame:
     '''
     Agrégation des données du fichier 'bureau.csv'
@@ -55,6 +56,8 @@ def process_bureau(df_bureau : pd.DataFrame) -> pd.DataFrame:
         )
 
     bureau_agg.reset_index(inplace=True)
+
+    print(f"    Agrégation bureau : {bureau_agg.shape}")
     return bureau_agg
 
 def process_bureau_balance(df_bureau_bal : pd.DataFrame, df_bureau : pd.DataFrame) -> pd.DataFrame:
@@ -101,5 +104,5 @@ def process_bureau_balance(df_bureau_bal : pd.DataFrame, df_bureau : pd.DataFram
     bb_curr_agg.columns = [f"BB_{col}_{stat}".upper() for col, stat in bb_curr_agg.columns]
     bb_curr_agg.reset_index(inplace=True)
 
-    print(f"bureau_bal_curr_agg : {bb_curr_agg.shape}")
+    print(f"    Agrégation bureau balance : {bb_curr_agg.shape}")
     return bb_curr_agg

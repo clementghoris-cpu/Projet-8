@@ -1,5 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def process_previous_app(df_prev_app : pd.DataFrame) -> pd.DataFrame:
     df = df_prev_app.copy()
@@ -70,4 +71,5 @@ def process_previous_app(df_prev_app : pd.DataFrame) -> pd.DataFrame:
                   .merge(refused_agg, on='SK_ID_CURR', how='left')
                   .reset_index())
 
+    print(f"    Agrégation previous application : {final_prev.shape}")
     return final_prev
