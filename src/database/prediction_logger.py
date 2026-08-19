@@ -1,6 +1,16 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
+import pandas as pd
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -53,4 +63,19 @@ def log_to_postgres(sk_id_curr: int, inputs: dict, model_version: str, execution
         except Exception as e: # noqa: BLE001
             db.rollback()
             print(f"Erreur lors du logging en BDD : {e}")
-        
+
+def fetch_inputs_and_prediction_from_log_data(limit: int = 1000) -> pd.DataFrame:
+    '''
+    Récupère les données inputs et prédiction de la table prediction_logs
+    '''
+    stmt = (
+        select(PredictionLog.id, PredictionLog.inputs, PredictionLog.prediction)
+        .where(PredictionLog.status_code == 200)
+        .order_by(PredictionLog.timestamp.desc())
+        .limit(limit)
+    )
+
+    with SessionLocal() as db:
+        df_logs = pd.read_sql(stmt, db.bind)
+
+    return df_logs

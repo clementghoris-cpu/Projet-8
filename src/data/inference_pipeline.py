@@ -15,17 +15,26 @@ redis_client = redis.Redis(host=CacheDb_settings.host,
 with open(App_config.paths.model_columns, "r", encoding="utf-8") as f:
     EXPECTED_COLUMNS = json.load(f)
 
-def get_redis_features(sk_id_curr: int) -> dict:
+def get_redis_features_batch(sk_ids: list[int]) -> list[dict]:
     """Récupère les agrégations historiques du client depuis Redis."""
     try:
-        raw_data = redis_client.get(f"client:{sk_id_curr}")
-        if raw_data:
-            return json.loads(raw_data)
-    except redis.RedisError as e:
-        print(f"Erreur de connexion Redis pour le client {sk_id_curr}: {e}")
-    
-    # Si le client n'existe pas ou si Redis plante, on renvoie un dict vide
-    return {}
+        pipe = redis_client.pipeline()
+
+        for sk_id in sk_ids:
+            pipe.get(f"client:{sk_id}")
+
+        results = pipe.execute()
+    except Exception:   # noqa: BLE001
+        return [{} for _ in sk_ids]
+
+    features = []
+    for res in results:
+        if res:
+            features.append(json.loads(res))
+        else:
+            features.append({})
+
+    return features
 
 
 def preprocess_basic_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -45,11 +54,11 @@ def preprocess_basic_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Feature engineering
     if all(col in df_clean.columns for col in ['AMT_CREDIT', 'AMT_INCOME_TOTAL']):
-        df_clean['CREDIT_INCOME_RATIO'] = df_clean['AMT_CREDIT'] / df_clean['AMT_INCOME_TOTAL']
+        df_clean['CREDIT_INCOME_RATIO'] = (df_clean['AMT_CREDIT'] / df_clean['AMT_INCOME_TOTAL'].replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
     if all(col in df_clean.columns for col in ['AMT_ANNUITY', 'AMT_INCOME_TOTAL']):
-        df_clean['ANNUITY_INCOME_RATIO'] = df_clean['AMT_ANNUITY'] / df_clean['AMT_INCOME_TOTAL']
+        df_clean['ANNUITY_INCOME_RATIO'] = (df_clean['AMT_ANNUITY'] / df_clean['AMT_INCOME_TOTAL'].replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
     if all(col in df_clean.columns for col in ['AMT_CREDIT', 'AMT_GOODS_PRICE']):
-        df_clean['CREDIT_GOODS_RATIO'] = df_clean['AMT_CREDIT'] / df_clean['AMT_GOODS_PRICE']
+        df_clean['CREDIT_GOODS_RATIO'] = (df_clean['AMT_CREDIT'] / df_clean['AMT_GOODS_PRICE'].replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
 
     return df_clean
 
@@ -122,13 +131,20 @@ def encode_categorical_features(df):
     return df_enc
 
 def build_full_features(pydantic_df: pd.DataFrame, expected_columns: list) -> pd.DataFrame:
-    """Orchestre le pipeline complet."""
-    sk_id_curr = int(pydantic_df['SK_ID_CURR'].iloc[0])
+    """
+    Orchestre le pipeline complet.
+    Fonctionne pour 1 ligne (API) ou pour N lignes (Batch)
+    """
+    sk_ids = pydantic_df['SK_ID_CURR'].astype(int).tolist()
     
     # Récupération Redis
-    redis_features = get_redis_features(sk_id_curr)
-    redis_df = pd.DataFrame([redis_features]) 
-    pydantic_df = pd.concat([pydantic_df, redis_df], axis=1)
+    redis_features_list = get_redis_features_batch(sk_ids)
+    redis_df = pd.DataFrame(redis_features_list) 
+
+    pydantic_df = pd.concat([
+            pydantic_df.reset_index(drop=True), 
+            redis_df.reset_index(drop=True)
+        ], axis=1)
 
     # Nettoyage de base (Ratios primaires)
     df_clean = preprocess_basic_features(pydantic_df)

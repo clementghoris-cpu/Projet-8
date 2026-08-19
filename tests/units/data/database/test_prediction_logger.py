@@ -1,8 +1,13 @@
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 
-from src.database.prediction_logger import PredictionLog, log_to_postgres
+from src.database.prediction_logger import (
+    PredictionLog,
+    fetch_inputs_and_prediction_from_log_data,
+    log_to_postgres,
+)
 
 
 @pytest.fixture
@@ -95,3 +100,57 @@ def test_log_to_postgres_optional_fields_none(mock_session_factory, mock_db_sess
     assert added_obj.probability is None
     assert added_obj.prediction is None
     assert added_obj.error_message is None
+
+@patch('src.database.prediction_logger.pd.read_sql')
+@patch('src.database.prediction_logger.SessionLocal')
+def test_fetch_inputs_and_prediction_success(mock_session_factory, mock_read_sql, mock_db_session):
+    """Vérifie la récupération nominale des logs sous forme de DataFrame Pandas."""
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
+    
+    # Simulation d'un DataFrame de retour
+    expected_df = pd.DataFrame([
+        {"id": 1, "inputs": {"AMT_CREDIT": 100000}, "prediction": 0},
+        {"id": 2, "inputs": {"AMT_CREDIT": 50000}, "prediction": 1}
+    ])
+    mock_read_sql.return_value = expected_df
+
+    df_result = fetch_inputs_and_prediction_from_log_data()
+
+    # Vérifications
+    mock_read_sql.assert_called_once()
+    # Le premier argument transmis à read_sql doit être la requête SQLAlchemy
+    stmt_passed = mock_read_sql.call_args[0][0]
+    assert "LIMIT :param_1" in str(stmt_passed) or "limit" in str(stmt_passed).lower()
+    
+    assert isinstance(df_result, pd.DataFrame)
+    assert len(df_result) == 2
+    assert list(df_result.columns) == ["id", "inputs", "prediction"]
+
+
+@patch('src.database.prediction_logger.pd.read_sql')
+@patch('src.database.prediction_logger.SessionLocal')
+def test_fetch_inputs_and_prediction_custom_limit(mock_session_factory, mock_read_sql, mock_db_session):
+    """Vérifie que la limite personnalisée est correctement appliquée dans la requête."""
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
+    mock_read_sql.return_value = pd.DataFrame()
+
+    custom_limit = 50
+    fetch_inputs_and_prediction_from_log_data(limit=custom_limit)
+
+    mock_read_sql.assert_called_once()
+    stmt_passed = mock_read_sql.call_args[0][0]
+    assert stmt_passed._limit == custom_limit
+
+
+@patch('src.database.prediction_logger.pd.read_sql')
+@patch('src.database.prediction_logger.SessionLocal')
+def test_fetch_inputs_and_prediction_empty(mock_session_factory, mock_read_sql, mock_db_session):
+    """Vérifie le comportement lorsque la table en BDD ne contient aucune ligne."""
+    mock_session_factory.return_value.__enter__.return_value = mock_db_session
+    mock_read_sql.return_value = pd.DataFrame(columns=["id", "inputs", "prediction"])
+
+    df_result = fetch_inputs_and_prediction_from_log_data()
+
+    assert isinstance(df_result, pd.DataFrame)
+    assert df_result.empty
+    assert list(df_result.columns) == ["id", "inputs", "prediction"]

@@ -30,7 +30,7 @@ with (
         add_polynomial_and_interaction_features,
         build_full_features,
         encode_categorical_features,
-        get_redis_features,
+        get_redis_features_batch,
         preprocess_basic_features,
     )
 
@@ -40,35 +40,42 @@ with (
 
 @patch("src.data.inference_pipeline.redis_client")
 def test_get_redis_features_success(mock_redis):
-    """Vérifie la récupération et le parsing JSON depuis Redis."""
-    payload = {"POS_COUNT": 3.0, "INST_LATE_RATE": 0.1}
-    mock_redis.get.return_value = json.dumps(payload)
+    """Vérifie la récupération et le parsing JSON par pipeline pour un batch de clients."""
+    payload_1 = {"POS_COUNT": 3.0, "INST_LATE_RATE": 0.1}
+    payload_2 = {"POS_COUNT": 1.0, "INST_LATE_RATE": 0.0}
 
-    result = get_redis_features(100001)
+    # Simulation du comportement de pipeline Redis
+    mock_pipeline = MagicMock()
+    mock_redis.pipeline.return_value = mock_pipeline
+    mock_pipeline.execute.return_value = [
+        json.dumps(payload_1),
+        json.dumps(payload_2)
+    ]
 
-    mock_redis.get.assert_called_once_with("client:100001")
-    assert result == payload
+    sk_ids = [100001, 100002]
+    result = get_redis_features_batch(sk_ids)
 
+    # Vérification que la commande GET a été empilée pour chaque ID
+    assert mock_pipeline.get.call_count == 2
+    mock_pipeline.get.assert_any_call("client:100001")
+    mock_pipeline.get.assert_any_call("client:100002")
+
+    assert result == [payload_1, payload_2]
 
 @patch("src.data.inference_pipeline.redis_client")
 def test_get_redis_features_not_found(mock_redis):
-    """Vérifie le retour d'un dictionnaire vide quand la clé Redis n'existe pas."""
-    mock_redis.get.return_value = None
+    """Vérifie qu'un dictionnaire vide est retourné pour les ID absents de Redis."""
+    payload_1 = {"POS_COUNT": 3.0}
 
-    result = get_redis_features(999999)
+    mock_pipeline = MagicMock()
+    mock_redis.pipeline.return_value = mock_pipeline
+    # Client 100001 existe, Client 999999 n'existe pas (None)
+    mock_pipeline.execute.return_value = [json.dumps(payload_1), None]
 
-    assert result == {}
+    sk_ids = [100001, 999999]
+    result = get_redis_features_batch(sk_ids)
 
-
-@patch("src.data.inference_pipeline.redis_client")
-def test_get_redis_features_redis_error(mock_redis):
-    """Vérifie le fallback sur un dictionnaire vide en cas d'erreur Redis."""
-    import redis
-    mock_redis.get.side_effect = redis.RedisError("Erreur Réseau")
-
-    result = get_redis_features(100001)
-
-    assert result == {}
+    assert result == [payload_1, {}]
 
 
 # ==============================================================================
@@ -171,43 +178,62 @@ def test_encode_categorical_features():
 
 
 # ==============================================================================
-# TESTS : build_full_features (Pipeline complet)
+# TESTS : build_full_features (Pipeline complet en Batch)
 # ==============================================================================
 
-@patch("src.data.inference_pipeline.get_redis_features")
-def test_build_full_features_pipeline(mock_get_redis):
-    """Vérifie l'orchestration complète du pipeline et l'alignement des colonnes."""
-    # Simulation des données Redis
-    mock_get_redis.return_value = {
-        "EXT_SOURCE_1": 0.6,
-        "EXT_SOURCE_2": 0.5,
-        "EXT_SOURCE_3": 0.4
-    }
+@patch("src.data.inference_pipeline.get_redis_features_batch")
+def test_build_full_features_pipeline_batch(mock_get_redis_batch):
+    """Vérifie l'orchestration complète du pipeline pour un batch de plusieurs lignes."""
+    # Simulation des données Redis retournées pour 2 clients
+    mock_get_redis_batch.return_value = [
+        {"EXT_SOURCE_1": 0.6, "EXT_SOURCE_2": 0.5},
+        {"EXT_SOURCE_1": 0.2, "EXT_SOURCE_2": 0.8}
+    ]
 
-    # DataFrame d'entrée (Simulant la payload de l'API / Pydantic)
-    pydantic_df = pd.DataFrame([{
-        'SK_ID_CURR': 100001,
-        'DAYS_BIRTH': -14600, # 40 ans
-        'AMT_CREDIT': 200000.0,
-        'AMT_INCOME_TOTAL': 50000.0,
-        'CODE_GENDER': 'M'
-    }])
+    # DataFrame d'entrée simulant un batch de 2 requêtes
+    pydantic_df = pd.DataFrame([
+        {
+            'SK_ID_CURR': 100001,
+            'DAYS_BIRTH': -14600, # 40 ans
+            'AMT_CREDIT': 200000.0,
+            'AMT_INCOME_TOTAL': 50000.0,
+            'CODE_GENDER': 'M'
+        },
+        {
+            'SK_ID_CURR': 100002,
+            'DAYS_BIRTH': -10950, # 30 ans
+            'AMT_CREDIT': 100000.0,
+            'AMT_INCOME_TOTAL': 50000.0,
+            'CODE_GENDER': 'F'
+        }
+    ])
 
     expected_cols = [
         "SK_ID_CURR", "AMT_CREDIT", "AMT_INCOME_TOTAL", "AGE_YEARS",
-        "CREDIT_INCOME_RATIO", "EXT1_EXT2", "CODE_GENDER_M", "FEATURE_NON_EXISTANTE"
+        "CREDIT_INCOME_RATIO", "EXT1_EXT2", "CODE_GENDER_M", "CODE_GENDER_F", "FEATURE_NON_EXISTANTE"
     ]
 
     df_final = build_full_features(pydantic_df, expected_columns=expected_cols)
 
-    # 1. Les colonnes finales doivent correspondre EXACTEMENT à expected_cols dans le même ordre
-    assert list(df_final.columns) == expected_cols
+    # get_redis_features_batch a dû être appelé avec les 2 SK_ID_CURR
+    mock_get_redis_batch.assert_called_once_with([100001, 100002])
 
-    # 2. Vérification des valeurs calculées
+    # Les colonnes finales doivent correspondre EXACTEMENT à expected_cols
+    assert list(df_final.columns) == expected_cols
+    assert len(df_final) == 2
+
+    # Vérification des valeurs calculées pour le Client 1
     assert df_final['AGE_YEARS'].iloc[0] == 40
     assert df_final['CREDIT_INCOME_RATIO'].iloc[0] == pytest.approx(4.0)
     assert df_final['EXT1_EXT2'].iloc[0] == pytest.approx(0.3)
     assert df_final['CODE_GENDER_M'].iloc[0] == 1
+    assert df_final['CODE_GENDER_F'].iloc[0] == 0
 
-    # 3. La colonne non fournie ni calculée doit être remplie par la valeur par défaut 0
-    assert df_final['FEATURE_NON_EXISTANTE'].iloc[0] == 0
+    # Vérification des valeurs calculées pour le Client 2
+    assert df_final['AGE_YEARS'].iloc[1] == 30
+    assert df_final['EXT1_EXT2'].iloc[1] == pytest.approx(0.16)
+    assert df_final['CODE_GENDER_M'].iloc[1] == 0
+    assert df_final['CODE_GENDER_F'].iloc[1] == 1
+
+    # La colonne inexistante est bien complétée avec 0
+    assert (df_final['FEATURE_NON_EXISTANTE'] == 0).all()

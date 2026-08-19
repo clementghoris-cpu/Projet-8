@@ -9,7 +9,7 @@ with (
     patch("src.database.prediction_logger.init_db"),
     patch("src.database.prediction_logger.log_to_postgres")
 ):
-    from src.API.api import healthcheck, load_model, predict_credit
+    from src.API.api import get_inference_logs, healthcheck, load_model, predict_credit
 
 # ==============================================================================
 # TESTS UNITAIRES 
@@ -136,3 +136,62 @@ async def test_predict_credit_pipeline_error_logs_500(mock_log, mock_build_featu
     assert "Crash pipeline" in exc_info.value.detail
     mock_log.assert_called_once()
     assert mock_log.call_args[1]["status_code"] == 500
+
+@patch("src.API.api.fetch_inputs_and_prediction_from_log_data")
+@patch("src.API.api.build_full_features")
+def test_get_inference_logs_success(mock_build_features, mock_fetch_logs):
+    """Vérifie la reconstruction et le renvoi réussi des logs d'inférence."""
+    # Simulation des données brutes renvoyées par PostgreSQL
+    raw_logs_df = pd.DataFrame([
+        {"id": 1, "inputs": {"SK_ID_CURR": 100001, "AMT_CREDIT": 50000}, "prediction": 0.15},
+        {"id": 2, "inputs": {"SK_ID_CURR": 100002, "AMT_CREDIT": 80000}, "prediction": 0.85}
+    ])
+    mock_fetch_logs.return_value = raw_logs_df
+
+    # Simulation du DataFrame reconstruit par build_full_features (avec un NaN pour tester la conversion en None)
+    mock_full_df = pd.DataFrame([
+        {"SK_ID_CURR": 100001, "AMT_CREDIT": 50000, "FEATURE_2": np.nan},
+        {"SK_ID_CURR": 100002, "AMT_CREDIT": 80000, "FEATURE_2": 42.0}
+    ])
+    mock_build_features.return_value = mock_full_df
+
+    # Exécution de la fonction
+    response = get_inference_logs(limit=500)
+
+    # Assertions
+    assert response["status"] == "success"
+    assert response["count"] == 2
+    assert len(response["data"]) == 2
+    
+    # Vérification que TARGET est bien ajouté et que NaN est devenu None
+    assert response["data"][0]["TARGET"] == 0.15
+    assert response["data"][0]["FEATURE_2"] is None  # np.nan -> None
+    assert response["data"][1]["TARGET"] == 0.85
+    assert response["data"][1]["FEATURE_2"] == 42.0
+
+    mock_fetch_logs.assert_called_once_with(500)
+    mock_build_features.assert_called_once()
+
+
+@patch("src.API.api.fetch_inputs_and_prediction_from_log_data")
+def test_get_inference_logs_empty(mock_fetch_logs):
+    """Vérifie le comportement de l'API lorsque aucun log n'est disponible."""
+    # Simulation d'un DataFrame vide
+    mock_fetch_logs.return_value = pd.DataFrame()
+
+    response = get_inference_logs(limit=100)
+
+    assert response["status"] == "success"
+    assert response["count"] == 0
+    assert response["data"] == []
+    mock_fetch_logs.assert_called_once_with(100)
+
+
+@patch("src.API.api.fetch_inputs_and_prediction_from_log_data", side_effect=Exception("Erreur de connexion BDD"))
+def test_get_inference_logs_exception_raises_500(mock_fetch_logs):
+    """Vérifie qu'une exception 500 est levée en cas d'erreur de récupération des logs."""
+    with pytest.raises(HTTPException) as exc_info:
+        get_inference_logs(limit=500)
+
+    assert exc_info.value.status_code == 500
+    assert "Erreur de connexion BDD" in exc_info.value.detail
