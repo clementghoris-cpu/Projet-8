@@ -16,11 +16,12 @@ class PathsConfig(BaseModel):
     previous_application : str
     output_aggregation : str
     model_columns : str
+    model_features_importance : str
     model : str
 
     @field_validator("train_clean", "application_test", "bureau_balance", "bureau", "credit_card_balance",
                      "installments_payments", "pos_cash_balance", "previous_application",
-                      "output_aggregation", "model_columns", "model", mode="after")
+                      "output_aggregation", "model_columns", "model_features_importance", "model", mode="after")
     @classmethod
     def make_absolute_path(cls, value: str) -> str:
         if not os.path.isabs(value):

@@ -10,6 +10,7 @@ paths:
   output_aggregation: "data/processed/historic_aggregation.csv"
 
   model_columns: "models/model_columns.json"
+  model_features_importance: "models/model_features_importance.json"
   model: "models/model.skops"
 
 model:
