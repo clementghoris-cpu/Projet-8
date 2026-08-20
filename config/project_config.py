@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class PathsConfig(BaseModel):
+    train_clean : str
     application_test : str
     bureau_balance : str
     bureau : str
@@ -15,11 +16,12 @@ class PathsConfig(BaseModel):
     previous_application : str
     output_aggregation : str
     model_columns : str
+    model_features_importance : str
     model : str
 
-    @field_validator("application_test", "bureau_balance", "bureau", "credit_card_balance",
+    @field_validator("train_clean", "application_test", "bureau_balance", "bureau", "credit_card_balance",
                      "installments_payments", "pos_cash_balance", "previous_application",
-                      "output_aggregation", "model_columns", "model", mode="after")
+                      "output_aggregation", "model_columns", "model_features_importance", "model", mode="after")
     @classmethod
     def make_absolute_path(cls, value: str) -> str:
         if not os.path.isabs(value):
@@ -66,7 +68,9 @@ class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="api_", extra="ignore")
     url : str = "http://localhost"
     port : int = 8000
-    predict_route : str = "/predict"
+    enable_cProfile : bool = False
+    predict_route : str = "predict"
+    logs_inference_route : str = "logs/inference-data"
 
 App_config = load_config(config_file = os.path.join(os.getcwd(), "config","config.yml"))
 CacheDb_settings = CacheDbSettings()

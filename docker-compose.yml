@@ -51,7 +51,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD}
       POSTGRES_DB: ${POSTGRESQL_DB}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d scoring_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USER} -d ${POSTGRESQL_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -84,7 +84,10 @@ services:
       - POSTGRESQL_PORT=${POSTGRESQL_PORT}
       - POSTGRESQL_DB=${POSTGRESQL_DB}
       - POSTGRESQL_USER=${POSTGRESQL_USER}
-      - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}
+      - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}    
+
+      # API
+      - API_ENABLE_CPROFILE=${API_ENABLE_CPROFILE}
     depends_on:
       postgres:
         condition: service_healthy
