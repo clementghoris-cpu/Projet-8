@@ -95,7 +95,9 @@ jobs:
                                 
                 API_URL: ${{ vars.API_URL }}
                 API_PORT: ${{ vars.API_PORT }}
+                API_ENABLE_CPROFILE: ${{ vars.API_ENABLE_CPROFILE }}
                 API_PREDICT_ROUTE: ${{ vars.API_PREDICT_ROUTE }}
+                API_LOGS_PROFILING_ROUTE: ${{ vars.API_LOGS_PROFILING_ROUTE }}
               run: |
                 echo "Démarrage du déploiement pour la version ${{ needs.Creation-Tag.outputs.release_tag }}"
 

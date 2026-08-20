@@ -71,6 +71,7 @@ class ApiSettings(BaseSettings):
     enable_cProfile : bool = False
     predict_route : str = "predict"
     logs_inference_route : str = "logs/inference-data"
+    logs_profiling_route : str = "logs/profiling"
 
 App_config = load_config(config_file = os.path.join(os.getcwd(), "config","config.yml"))
 CacheDb_settings = CacheDbSettings()
