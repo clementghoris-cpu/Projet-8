@@ -110,7 +110,7 @@ async def predict_credit(client_data: ClientApplicationInput, request: Request, 
         background_tasks.add_task(
             log_profile_to_db,
             sk_id_curr=sk_id_curr,
-            optimization_stage=OptimizationStage.OPTI_1,  
+            optimization_stage=OptimizationStage.OPTI_2,  
             model_version=request.app.state.model_version,
             total_latency_ms=inference_time_ms,
             metrics=profile_res["metrics"],
@@ -138,7 +138,7 @@ async def predict_credit(client_data: ClientApplicationInput, request: Request, 
             status_code=500,
             error_message=str(e)
         )
-        
+
         raise HTTPException(status_code=500, detail=f"Erreur interne lors de la prédiction : {e!s}")
 
 

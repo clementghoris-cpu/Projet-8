@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock, mock_open, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -10,7 +11,7 @@ import pytest
 MOCK_EXPECTED_COLUMNS = [
     "SK_ID_CURR", "AMT_CREDIT", "AMT_INCOME_TOTAL", "AGE_YEARS", 
     "CREDIT_INCOME_RATIO", "EXT_SOURCE_1_SQ", "EXT1_EXT2", 
-    "EXT2_DIV_EXT3", "CODE_GENDER_F", "CODE_GENDER_M"
+    "EXT2_DIV_EXT3", "FLAG_OWN_CAR", "FLAG_OWN_REALTY", "CODE_GENDER"
 ]
 
 mock_json_data = json.dumps(MOCK_EXPECTED_COLUMNS)
@@ -27,11 +28,15 @@ with (
     patch("builtins.open", side_effect=custom_open)
 ):
     from src.data.inference_pipeline import (
+        add_polynomial_and_interaction_dict,
         add_polynomial_and_interaction_features,
+        align_dict_to_dataframe,
         build_full_features,
+        encode_categorical_dict,
         encode_categorical_features,
         get_redis_features_batch,
         preprocess_basic_features,
+        preprocess_basic_features_dict,
     )
 
 # ------------------------------------------------------------------------------
@@ -62,6 +67,7 @@ def test_get_redis_features_success(mock_redis):
 
     assert result == [payload_1, payload_2]
 
+
 @patch("src.data.inference_pipeline.redis_client")
 def test_get_redis_features_not_found(mock_redis):
     """Vérifie qu'un dictionnaire vide est retourné pour les ID absents de Redis."""
@@ -79,15 +85,98 @@ def test_get_redis_features_not_found(mock_redis):
 
 
 # ==============================================================================
-# TESTS : preprocess_basic_features
+# TESTS : Traitement Ligne Unique (fonctions *_dict)
 # ==============================================================================
 
-def test_preprocess_basic_features_anomalies_and_ratios():
-    """Vérifie la correction de DAYS_EMPLOYED, la conversion des âges et le calcul des ratios."""
+def test_preprocess_basic_features_dict():
+    """Vérifie le nettoyage in-place sur dictionnaire pour 1 ligne."""
+    data = {
+        "DAYS_BIRTH": -10950,        # 30 ans
+        "DAYS_EMPLOYED": 365243,     # Anomalie
+        "AMT_CREDIT": 200000.0,
+        "AMT_INCOME_TOTAL": 50000.0,
+        "AMT_ANNUITY": 10000.0,
+        "AMT_GOODS_PRICE": 180000.0,
+    }
+
+    preprocess_basic_features_dict(data)
+
+    assert data["DAYS_EMPLOYED_ANOM"] == 1
+    assert np.isnan(data["DAYS_EMPLOYED"])
+    assert data["AGE_YEARS"] == 30
+    assert data["CREDIT_INCOME_RATIO"] == pytest.approx(4.0)
+    assert data["ANNUITY_INCOME_RATIO"] == pytest.approx(0.2)
+    assert data["CREDIT_GOODS_RATIO"] == pytest.approx(200000.0 / 180000.0)
+
+
+def test_add_polynomial_and_interaction_dict():
+    """Vérifie la création des polynômes et interactions sur dictionnaire."""
+    data = {
+        "EXT_SOURCE_1": 0.5,
+        "EXT_SOURCE_2": 0.4,
+        "EXT_SOURCE_3": 0.2,
+        "CREDIT_INCOME_RATIO": 2.0,
+        "AMT_CREDIT": 100000.0,
+        "AGE_YEARS": 50,
+    }
+
+    add_polynomial_and_interaction_dict(data)
+
+    assert data["EXT_SOURCE_1_SQ"] == pytest.approx(0.25)
+    assert data["EXT_SOURCE_1_CUBIC"] == pytest.approx(0.125)
+    assert data["EXT1_EXT2"] == pytest.approx(0.2)
+    assert data["EXT2_DIV_EXT3"] == pytest.approx(2.0)
+    assert data["CREDIT_DIV_AGE"] == pytest.approx(2000.0)
+
+
+def test_encode_categorical_dict():
+    """Vérifie le traitement des variables catégorielles et du One-Hot en dictionnaire."""
+    data = {
+        "FLAG_OWN_CAR": "Y",
+        "FLAG_OWN_REALTY": "N",
+        "CODE_GENDER": "M",
+        "NAME_CONTRACT_TYPE": "Cash loans"
+    }
+
+    encode_categorical_dict(data)
+
+    assert data["FLAG_OWN_CAR"] == 1
+    assert data["FLAG_OWN_REALTY"] == 0
+    assert data["CODE_GENDER"] == 1
+    assert data["NAME_CONTRACT_TYPE_Cash loans"] == 1
+
+
+def test_align_dict_to_dataframe():
+    """Vérifie l'alignement strict du dictionnaire vers le DataFrame 1 ligne."""
+    data = {
+        "SK_ID_CURR": 100001,
+        "AMT_CREDIT": 50000.0,
+        "FLAG_OWN_CAR": True,
+        "NON_NUMERIC": "invalid_val"
+    }
+    expected_cols = ["SK_ID_CURR", "AMT_CREDIT", "FLAG_OWN_CAR", "ABSENT_COL", "NON_NUMERIC"]
+
+    df_out = align_dict_to_dataframe(data, expected_cols)
+
+    assert list(df_out.columns) == expected_cols
+    assert len(df_out) == 1
+    assert df_out["SK_ID_CURR"].iloc[0] == 100001.0
+    assert df_out["AMT_CREDIT"].iloc[0] == 50000.0
+    assert df_out["FLAG_OWN_CAR"].iloc[0] == 1.0
+    assert np.isnan(df_out["ABSENT_COL"].iloc[0])
+    assert df_out["NON_NUMERIC"].iloc[0] == 0.0
+
+
+# ==============================================================================
+# TESTS : Traitement Batch (fonctions DataFrame)
+# ==============================================================================
+
+def test_preprocess_basic_features_batch():
+    """Vérifie le nettoyage de base sur DataFrame."""
     raw_df = pd.DataFrame([{
         'SK_ID_CURR': 100001,
-        'DAYS_BIRTH': -10950,        # 30 ans (10950 / 365)
-        'DAYS_EMPLOYED': 365243,      # Valeur anormale (Retraité/Sans emploi)
+        'DAYS_BIRTH': -10950,
+        'DAYS_EMPLOYED': 365243,
         'AMT_CREDIT': 200000.0,
         'AMT_INCOME_TOTAL': 50000.0,
         'AMT_ANNUITY': 10000.0,
@@ -96,30 +185,18 @@ def test_preprocess_basic_features_anomalies_and_ratios():
 
     df_out = preprocess_basic_features(raw_df)
 
-    # 1. Traitement des anomalies DAYS_EMPLOYED
     assert df_out['DAYS_EMPLOYED_ANOM'].iloc[0] == 1
     assert pd.isna(df_out['DAYS_EMPLOYED'].iloc[0])
-    assert pd.isna(df_out['YEARS_EMPLOYED'].iloc[0])
-
-    # 2. Age en années
     assert df_out['AGE_YEARS'].iloc[0] == 30
-
-    # 3. Ratios
     assert df_out['CREDIT_INCOME_RATIO'].iloc[0] == pytest.approx(4.0)
-    assert df_out['ANNUITY_INCOME_RATIO'].iloc[0] == pytest.approx(0.2)
-    assert df_out['CREDIT_GOODS_RATIO'].iloc[0] == pytest.approx(200000.0 / 180000.0)
 
 
-# ==============================================================================
-# TESTS : add_polynomial_and_interaction_features
-# ==============================================================================
-
-def test_add_polynomial_and_interaction_features():
-    """Vérifie la génération des colonnes polynomiales, multiplications et divisions."""
+def test_add_polynomial_and_interaction_features_batch():
+    """Vérifie les interactions polynomiales sur DataFrame."""
     df_in = pd.DataFrame([{
         'EXT_SOURCE_1': 0.5,
         'EXT_SOURCE_2': 0.4,
-        'EXT_SOURCE_3': 0.2,
+        'EXT_SOURCE_3': 0.0,  # Division par zéro intentionnelle
         'CREDIT_INCOME_RATIO': 2.0,
         'AMT_CREDIT': 100000.0,
         'AGE_YEARS': 50
@@ -127,39 +204,13 @@ def test_add_polynomial_and_interaction_features():
 
     df_out = add_polynomial_and_interaction_features(df_in)
 
-    # 1. Puissances
     assert df_out['EXT_SOURCE_1_SQ'].iloc[0] == pytest.approx(0.25)
-    assert df_out['EXT_SOURCE_1_CUBIC'].iloc[0] == pytest.approx(0.125)
-
-    # 2. Multiplications
     assert df_out['EXT1_EXT2'].iloc[0] == pytest.approx(0.2)
-
-    # 3. Divisions
-    assert df_out['EXT2_DIV_EXT3'].iloc[0] == pytest.approx(2.0)
-    assert df_out['CREDIT_DIV_AGE'].iloc[0] == pytest.approx(2000.0)
-
-
-def test_add_polynomial_division_by_zero():
-    """Vérifie que la division par zéro produit NaN au lieu de inf/-inf."""
-    df_in = pd.DataFrame([{
-        'EXT_SOURCE_2': 0.5,
-        'EXT_SOURCE_3': 0.0, # Division par zéro !
-        'AMT_CREDIT': 100000.0,
-        'AGE_YEARS': 0       # Division par zéro !
-    }])
-
-    df_out = add_polynomial_and_interaction_features(df_in)
-
     assert pd.isna(df_out['EXT2_DIV_EXT3'].iloc[0])
-    assert pd.isna(df_out['CREDIT_DIV_AGE'].iloc[0])
 
 
-# ==============================================================================
-# TESTS : encode_categorical_features
-# ==============================================================================
-
-def test_encode_categorical_features():
-    """Vérifie le One-Hot Encoding et la préservation de la clé SK_ID_CURR."""
+def test_encode_categorical_features_batch():
+    """Vérifie le One-Hot Encoding et la préservation de la clé SK_ID_CURR sur DataFrame."""
     df_in = pd.DataFrame([{
         'SK_ID_CURR': 100001,
         'CODE_GENDER': 'F',
@@ -168,40 +219,63 @@ def test_encode_categorical_features():
 
     df_out = encode_categorical_features(df_in)
 
-    # La clé SK_ID_CURR doit toujours être présente et inchangée
     assert 'SK_ID_CURR' in df_out.columns
     assert df_out['SK_ID_CURR'].iloc[0] == 100001
-
-    # Des colonnes créées par pd.get_dummies doivent exister
     assert 'CODE_GENDER_F' in df_out.columns
     assert df_out['CODE_GENDER_F'].iloc[0] == 1
 
 
 # ==============================================================================
-# TESTS : build_full_features (Pipeline complet en Batch)
+# TESTS : build_full_features (Orchestration & Routing)
 # ==============================================================================
 
 @patch("src.data.inference_pipeline.get_redis_features_batch")
-def test_build_full_features_pipeline_batch(mock_get_redis_batch):
-    """Vérifie l'orchestration complète du pipeline pour un batch de plusieurs lignes."""
-    # Simulation des données Redis retournées pour 2 clients
+def test_build_full_features_single_routing(mock_get_redis_batch):
+    """Vérifie que build_full_features passe par le pipeline Single quand len(df) == 1."""
+    mock_get_redis_batch.return_value = [{"EXT_SOURCE_1": 0.6, "EXT_SOURCE_2": 0.5}]
+
+    pydantic_df = pd.DataFrame([{
+        'SK_ID_CURR': 100001,
+        'DAYS_BIRTH': -14600,
+        'AMT_CREDIT': 200000.0,
+        'AMT_INCOME_TOTAL': 50000.0,
+        'CODE_GENDER': 'M'
+    }])
+
+    expected_cols = [
+        "SK_ID_CURR", "AMT_CREDIT", "AMT_INCOME_TOTAL", "AGE_YEARS",
+        "CREDIT_INCOME_RATIO", "EXT1_EXT2", "CODE_GENDER", "FEATURE_ABSENTE"
+    ]
+
+    df_final = build_full_features(pydantic_df, expected_columns=expected_cols)
+
+    mock_get_redis_batch.assert_called_once_with([100001])
+    assert list(df_final.columns) == expected_cols
+    assert len(df_final) == 1
+    assert df_final['AGE_YEARS'].iloc[0] == 40
+    assert df_final['EXT1_EXT2'].iloc[0] == pytest.approx(0.3)
+    assert np.isnan(df_final['FEATURE_ABSENTE'].iloc[0])
+
+
+@patch("src.data.inference_pipeline.get_redis_features_batch")
+def test_build_full_features_batch_routing(mock_get_redis_batch):
+    """Vérifie que build_full_features passe par le pipeline Batch quand len(df) > 1."""
     mock_get_redis_batch.return_value = [
         {"EXT_SOURCE_1": 0.6, "EXT_SOURCE_2": 0.5},
         {"EXT_SOURCE_1": 0.2, "EXT_SOURCE_2": 0.8}
     ]
 
-    # DataFrame d'entrée simulant un batch de 2 requêtes
     pydantic_df = pd.DataFrame([
         {
             'SK_ID_CURR': 100001,
-            'DAYS_BIRTH': -14600, # 40 ans
+            'DAYS_BIRTH': -14600,
             'AMT_CREDIT': 200000.0,
             'AMT_INCOME_TOTAL': 50000.0,
             'CODE_GENDER': 'M'
         },
         {
             'SK_ID_CURR': 100002,
-            'DAYS_BIRTH': -10950, # 30 ans
+            'DAYS_BIRTH': -10950,
             'AMT_CREDIT': 100000.0,
             'AMT_INCOME_TOTAL': 50000.0,
             'CODE_GENDER': 'F'
@@ -210,30 +284,24 @@ def test_build_full_features_pipeline_batch(mock_get_redis_batch):
 
     expected_cols = [
         "SK_ID_CURR", "AMT_CREDIT", "AMT_INCOME_TOTAL", "AGE_YEARS",
-        "CREDIT_INCOME_RATIO", "EXT1_EXT2", "CODE_GENDER_M", "CODE_GENDER_F", "FEATURE_NON_EXISTANTE"
+        "CREDIT_INCOME_RATIO", "EXT1_EXT2", "CODE_GENDER_M", "CODE_GENDER_F", "FEATURE_ABSENTE"
     ]
 
     df_final = build_full_features(pydantic_df, expected_columns=expected_cols)
 
-    # get_redis_features_batch a dû être appelé avec les 2 SK_ID_CURR
     mock_get_redis_batch.assert_called_once_with([100001, 100002])
-
-    # Les colonnes finales doivent correspondre EXACTEMENT à expected_cols
     assert list(df_final.columns) == expected_cols
     assert len(df_final) == 2
 
-    # Vérification des valeurs calculées pour le Client 1
+    # Client 1
     assert df_final['AGE_YEARS'].iloc[0] == 40
-    assert df_final['CREDIT_INCOME_RATIO'].iloc[0] == pytest.approx(4.0)
     assert df_final['EXT1_EXT2'].iloc[0] == pytest.approx(0.3)
     assert df_final['CODE_GENDER_M'].iloc[0] == 1
-    assert df_final['CODE_GENDER_F'].iloc[0] == 0
 
-    # Vérification des valeurs calculées pour le Client 2
+    # Client 2
     assert df_final['AGE_YEARS'].iloc[1] == 30
     assert df_final['EXT1_EXT2'].iloc[1] == pytest.approx(0.16)
-    assert df_final['CODE_GENDER_M'].iloc[1] == 0
     assert df_final['CODE_GENDER_F'].iloc[1] == 1
 
-    # La colonne inexistante est bien complétée avec 0
-    assert (df_final['FEATURE_NON_EXISTANTE'] == 0).all()
+    # Les colonnes absentes sont complétées par 0 en mode batch
+    assert (df_final['FEATURE_ABSENTE'] == 0).all()

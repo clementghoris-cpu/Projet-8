@@ -43,7 +43,7 @@ selected_stages = st.sidebar.multiselect(
 )
 
 st.sidebar.divider()
-with st.sidebar.expander("📖 Guide des Optimisations", expanded=True):
+with st.sidebar.expander("Guide des Optimisations", expanded=True):
     st.markdown("""
     **`BASELINE`**
     * Code initial synchrone.
@@ -52,6 +52,10 @@ with st.sidebar.expander("📖 Guide des Optimisations", expanded=True):
     **`OPTI_1` (Background Tasks)**
     * Écritures BDD déportées en tâche de fond (`BackgroundTasks`).
     * Suppression du temps d'attente I/O BDD pour le client. 
+
+    **`OPTI_2` (Fast Dict Features Engineering)**
+    * Feature Engineering sur dictionnaires Python (sans Pandas).
+    * Fallback Pandas conservé pour les logs batch.
     """)
 
 df_filtered = df[df["optimization_stage"].isin(selected_stages)]
