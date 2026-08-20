@@ -42,6 +42,18 @@ selected_stages = st.sidebar.multiselect(
     default=df["optimization_stage"].unique().tolist()
 )
 
+st.sidebar.divider()
+with st.sidebar.expander("📖 Guide des Optimisations", expanded=True):
+    st.markdown("""
+    **`BASELINE`**
+    * Code initial synchrone.
+    * Pandas + Scikit-Learn wrapper + Écritures BDD bloquantes.
+
+    **`OPTI_1` (Background Tasks)**
+    * Écritures BDD déportées en tâche de fond (`BackgroundTasks`).
+    * Suppression du temps d'attente I/O BDD pour le client. 
+    """)
+
 df_filtered = df[df["optimization_stage"].isin(selected_stages)]
 
 # --- METRIQUES GLOBALES (KPIs) ---

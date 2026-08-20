@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 
 with (
     patch("src.database.database_access.init_db"),
@@ -60,9 +60,10 @@ async def test_predict_credit_model_none_raises_500():
     mock_request = MagicMock()
     mock_request.app.state.model = None
     mock_client_data = MagicMock()
+    mock_background_tasks = MagicMock(spec=BackgroundTasks)
 
     with pytest.raises(HTTPException) as exc_info:
-        await predict_credit(mock_client_data, mock_request)
+        await predict_credit(mock_client_data, mock_request, mock_background_tasks)
 
     assert exc_info.value.status_code == 500
     assert "Modèle ML non chargé" in exc_info.value.detail
@@ -73,7 +74,7 @@ async def test_predict_credit_model_none_raises_500():
 @patch("src.API.api.log_to_postgres")
 @patch("src.API.api.run_pipeline")
 async def test_predict_credit_decision_refused(mock_run_pipeline, mock_log_pg, mock_log_prof):
-    """Vérifie la décision 'REFUSÉ' (probabilité >= seuil -> classe 0)."""
+    """Vérifie la décision 'REFUSÉ' (probabilité >= seuil) et l'ajout des tâches de fond."""
     mock_request = MagicMock()
     mock_request.app.state.model = MagicMock()
     mock_request.app.state.threshold = 0.5
@@ -84,6 +85,8 @@ async def test_predict_credit_decision_refused(mock_run_pipeline, mock_log_pg, m
     mock_client_data.SK_ID_CURR = 100001
     mock_client_data.model_dump.return_value = {"SK_ID_CURR": 100001, "AMT_CREDIT": 50000}
 
+    mock_background_tasks = MagicMock(spec=BackgroundTasks)
+
     # Simulation du retour de run_pipeline (probabilité de défaut haute = 0.7)
     mock_run_pipeline.return_value = {
         "prob_default": 0.7,
@@ -91,16 +94,27 @@ async def test_predict_credit_decision_refused(mock_run_pipeline, mock_log_pg, m
         "cprofile_report": "report_mock"
     }
 
-    res = await predict_credit(mock_client_data, mock_request)
+    res = await predict_credit(mock_client_data, mock_request, mock_background_tasks)
 
     # Vérifications des sorties
     assert res["decision"] == "REFUSÉ"
     assert res["probabilite"] == 0.7
     assert res["SK_ID_CURR"] == 100001
 
-    # Vérification des appels de diagraphie (logging)
-    mock_log_pg.assert_called_once()
-    mock_log_prof.assert_called_once()
+    # Vérification que 2 tâches de fond ont bien été programmées
+    assert mock_background_tasks.add_task.call_count == 2
+
+    # Vérification de la 1ère tâche enregistrée (log_to_postgres)
+    first_task_call = mock_background_tasks.add_task.call_args_list[0]
+    assert first_task_call[0][0] == mock_log_pg
+    assert first_task_call[1]["sk_id_curr"] == 100001
+    assert first_task_call[1]["prediction"] == 0
+    assert first_task_call[1]["status_code"] == 200
+
+    # Vérification de la 2ème tâche enregistrée (log_profile_to_db)
+    second_task_call = mock_background_tasks.add_task.call_args_list[1]
+    assert second_task_call[0][0] == mock_log_prof
+    assert second_task_call[1]["sk_id_curr"] == 100001
 
 
 @pytest.mark.asyncio
@@ -108,7 +122,7 @@ async def test_predict_credit_decision_refused(mock_run_pipeline, mock_log_pg, m
 @patch("src.API.api.log_to_postgres")
 @patch("src.API.api.run_pipeline")
 async def test_predict_credit_decision_accorded(mock_run_pipeline, mock_log_pg, mock_log_prof):
-    """Vérifie la décision 'ACCORDÉ' (probabilité < seuil -> classe 1)."""
+    """Vérifie la décision 'ACCORDÉ' (probabilité < seuil) et la planification des tâches."""
     mock_request = MagicMock()
     mock_request.app.state.model = MagicMock()
     mock_request.app.state.threshold = 0.5
@@ -119,6 +133,8 @@ async def test_predict_credit_decision_accorded(mock_run_pipeline, mock_log_pg, 
     mock_client_data.SK_ID_CURR = 100002
     mock_client_data.model_dump.return_value = {"SK_ID_CURR": 100002}
 
+    mock_background_tasks = MagicMock(spec=BackgroundTasks)
+
     # Simulation du retour de run_pipeline (probabilité de défaut basse = 0.2)
     mock_run_pipeline.return_value = {
         "prob_default": 0.2,
@@ -126,10 +142,11 @@ async def test_predict_credit_decision_accorded(mock_run_pipeline, mock_log_pg, 
         "cprofile_report": "report_mock"
     }
 
-    res = await predict_credit(mock_client_data, mock_request)
+    res = await predict_credit(mock_client_data, mock_request, mock_background_tasks)
 
     assert res["decision"] == "ACCORDÉ"
     assert res["probabilite"] == 0.2
+    assert mock_background_tasks.add_task.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -146,16 +163,19 @@ async def test_predict_credit_pipeline_error_logs_500(mock_run_pipeline, mock_lo
     mock_client_data.SK_ID_CURR = 100003
     mock_client_data.model_dump.return_value = {"SK_ID_CURR": 100003}
 
+    mock_background_tasks = MagicMock(spec=BackgroundTasks)
+
     with pytest.raises(HTTPException) as exc_info:
-        await predict_credit(mock_client_data, mock_request)
+        await predict_credit(mock_client_data, mock_request, mock_background_tasks)
 
     assert exc_info.value.status_code == 500
     assert "Crash pipeline d'inférence" in exc_info.value.detail
-    
-    # Vérifie que l'erreur a bien été logguée dans PostgreSQL
+
+    # En cas d'erreur, log_to_postgres est appelé directement (pas via background_tasks)
     mock_log_pg.assert_called_once()
     assert mock_log_pg.call_args[1]["status_code"] == 500
     assert "Crash pipeline d'inférence" in mock_log_pg.call_args[1]["error_message"]
+    mock_background_tasks.add_task.assert_not_called()
 
 
 @patch("src.API.api.fetch_inputs_and_prediction_from_log_data")
