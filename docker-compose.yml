@@ -85,6 +85,9 @@ services:
       - POSTGRESQL_DB=${POSTGRESQL_DB}
       - POSTGRESQL_USER=${POSTGRESQL_USER}
       - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}    
+
+      # API
+      - API_ENABLE_CPROFILE=${API_ENABLE_CPROFILE}
     depends_on:
       postgres:
         condition: service_healthy

@@ -68,6 +68,7 @@ class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="api_", extra="ignore")
     url : str = "http://localhost"
     port : int = 8000
+    enable_cProfile : bool = False
     predict_route : str = "predict"
     logs_inference_route : str = "logs/inference-data"
 
