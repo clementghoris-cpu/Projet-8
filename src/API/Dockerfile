@@ -7,6 +7,10 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
+    
+WORKDIR /app
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Librairie système pour l'exécution du modèle ML (OpenMP)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -16,15 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Installation du package manager uv directement depuis le binaire officiel
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /app
-
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-cache --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-cache --no-dev --extra api --extra cache --no-install-project
 
 COPY src/ ./src/
 COPY config/ ./config/
 COPY models/ ./models/
 
-RUN uv sync --frozen --no-cache --no-dev
+RUN uv sync --frozen --no-cache --no-dev --extra api --extra cache
 
-CMD ["uv", "run", "uvicorn", "src.API.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.API.api:app", "--host", "0.0.0.0", "--port", "8000"]
