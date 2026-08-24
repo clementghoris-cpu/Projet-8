@@ -1,17 +1,14 @@
-import os
-
 import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Profilage & Performance API ML", layout="wide")
+from config.project_config import Api_settings
 
+st.set_page_config(page_title="Profilage & Performance API ML", layout="wide")
 st.title("Analyse des goulots d'étranglement & profilage API")
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-PROFILING_ENDPOINT = f"{API_BASE_URL}/logs/profiling"
-
+PROFILING_ENDPOINT = f"{Api_settings.url}:{Api_settings.port}/{Api_settings.logs_profiling_route}"
 
 @st.cache_data(ttl=30)
 def load_data_from_api(limit: int = 1000) -> pd.DataFrame:

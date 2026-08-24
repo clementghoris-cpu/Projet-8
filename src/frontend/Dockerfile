@@ -10,12 +10,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+ENV PATH="/app/.venv/bin:$PATH"
+
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-cache --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra gradio --no-install-project
 
 COPY src/ ./src/
 COPY config/ ./config/
 COPY data/raw/application_test.csv ./data/raw/application_test.csv
-RUN uv sync --frozen --no-cache --no-dev
+RUN uv sync --frozen --no-dev --extra gradio
 
-CMD ["uv", "run", "python", "-m", "src.frontend.formulaire"]
+CMD ["python", "-m", "src.frontend.formulaire"]

@@ -27,7 +27,7 @@ jobs:
                 enable-cache: true
 
             - name: Installation des dépendances
-              run: uv sync
+              run: uv sync --frozen --all-extras
 
             - name: Analyse qualité code avec Ruff
               run: uv run ruff check .
