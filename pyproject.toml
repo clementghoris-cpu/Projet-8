@@ -8,7 +8,7 @@ dependencies = [
     "numpy>=2.5.2",
     "pandas>=3.0.5",
     "pyyaml>=6.0.3",
-    "pydantic-settings>=2.15.0",
+    "pydantic-settings>=2.15.0",    
 ]
 
 [project.optional-dependencies]
@@ -47,6 +47,7 @@ dev = [
     "fakeredis>=2.37.0",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.3",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.pytest.ini_options]
